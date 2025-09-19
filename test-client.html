@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NotifyService SSE Test</title>
+  <style>
+    body { font-family: monospace; background: #f4f4f4; padding: 1em; }
+    #log { white-space: pre-wrap; border: 1px solid #ccc; background: #fff; padding: 1em; height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>NotifyService SSE Test</h1>
+
+  <label for="token">JWT Token:</label>
+  <input type="text" id="token" placeholder="paste token here" size="80">
+  <button id="connectBtn">Connect</button>
+  <button id="disconnectBtn">Disconnect</button>
+
+  <h2>Events:</h2>
+  <div id="log"></div>
+
+  <script>
+    let es = null;
+
+    function log(msg) {
+      const div = document.getElementById("log");
+      div.textContent += msg + "\n";
+      div.scrollTop = div.scrollHeight;
+    }
+
+    document.getElementById("connectBtn").onclick = () => {
+      const token = document.getElementById("token").value.trim();
+      if (!token) {
+        alert("Please enter a JWT token");
+        return;
+      }
+
+      if (es) {
+        es.close();
+      }
+
+      const url = "http://127.0.0.1:8000/api/v1/external/notify/stream";
+      es = new EventSource(url, { withCredentials: false });
+
+      log("Connecting to " + url);
+
+      es.onopen = () => log("✅ Stream opened");
+      es.onerror = (err) => log("❌ Error: " + JSON.stringify(err, ["message", "arguments", "type", "name"]))
+
+      es.onmessage = (ev) => {
+        log("📨 [default] " + ev.data);
+      };
+
+      // Example custom event
+      es.addEventListener("ready", (ev) => {
+        log("🔔 [ready] " + ev.data);
+      });
+    };
+
+    document.getElementById("disconnectBtn").onclick = () => {
+      if (es) {
+        es.close();
+        log("🔒 Stream closed");
+      }
+    };
+  </script>
+</body>
+</html>
