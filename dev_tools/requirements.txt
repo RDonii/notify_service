@@ -1,0 +1,4 @@
+aiohttp
+httpx
+uvloop
+PyJWT
