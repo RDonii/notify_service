@@ -28,6 +28,29 @@ It delivers events to clients via **Server-Sent Events (SSE)**, supports **Redis
 
 ---
 
+## Architecture
+
+The flow of NotifyService:
+
+- **Producers (internal)** send JSON events via `/api/v1/internal/notify/publish` (no auth, private network).
+- **NotifyService**:
+  - **Internal API** → receives, validates, publishes to Redis (optional persistence/push).
+  - **External API** → authenticates JWT token, subscribes to Redis, streams via SSE.
+- **Redis Pub/Sub** → per-user channels, fan-out.
+- **External Clients** (web browsers, mobile apps) → connect via SSE to `/api/v1/external/notify/stream`.
+
+### Diagram
+
+![NotifyService Flow](docs/notifyservice-architecture.png)
+
+**Legend:**
+- **Internal API** → trusted network only, no authentication.
+- **External API** → public endpoints, JWT authentication required.
+- **Redis Pub/Sub** → transient, real-time delivery; persistence optional.
+- **SSE Stream** → one connection per user/session; auto-reconnect & heartbeat.
+
+---
+
 ## Running Locally
 ```bash
 docker compose up --build
