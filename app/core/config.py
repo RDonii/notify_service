@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+    ALLOWED_ORIGINS: List[str] = os.getenv("ALLOWED_ORIGINS", ["*"])
+
     # JWT
     JWT_ALG: str = os.getenv("JWT_ALG", "HS256")
     JWT_SECRET: str = os.getenv("JWT_SECRET", "dev-secret")

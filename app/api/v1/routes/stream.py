@@ -17,4 +17,12 @@ async def stream(request: Request, ctx: AuthContext = Depends(auth_required)):
     """
     user_id = ctx.user_id
     generator = sse_event_stream(request.app.state.redis, user_id, request)
-    return StreamingResponse(generator, media_type="text/event-stream")
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
