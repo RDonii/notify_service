@@ -2,65 +2,109 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>NotifyService SSE Test</title>
+  <title>NotifyService SSE Tester</title>
   <style>
-    body { font-family: monospace; background: #f4f4f4; padding: 1em; }
-    #log { white-space: pre-wrap; border: 1px solid #ccc; background: #fff; padding: 1em; height: 400px; overflow-y: auto; }
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    label { display:block; margin-top:8px }
+    input, button, textarea { font-family: inherit; }
+    #log { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; height: 420px; overflow: auto; background:#fafafa }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    .small { font-size: 12px; color:#555 }
   </style>
 </head>
 <body>
-  <h1>NotifyService SSE Test</h1>
+  <h1>NotifyService SSE Tester</h1>
 
-  <label for="token">JWT Token:</label>
-  <input type="text" id="token" placeholder="paste token here" size="80">
-  <button id="connectBtn">Connect</button>
-  <button id="disconnectBtn">Disconnect</button>
+  <div class="row">
+    <label>Stream URL (absolute)</label>
+    <input id="url" size="70" value="http://localhost:8000/api/v1/external/notify/stream">
+  </div>
 
-  <h2>Events:</h2>
+  <div class="row">
+    <label>JWT token</label>
+    <input id="token" size="70" placeholder="paste JWT here">
+  </div>
+
+  <div class="row">
+    <label>Custom event types (comma-separated)</label>
+    <input id="types" size="70" placeholder="e.g. test,report_ready,progress">
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn">Disconnect</button>
+    <span class="small" id="status"></span>
+  </div>
+
+  <h3>Events</h3>
   <div id="log"></div>
 
   <script>
     let es = null;
 
     function log(msg) {
-      const div = document.getElementById("log");
-      div.textContent += msg + "\n";
-      div.scrollTop = div.scrollHeight;
+      const el = document.getElementById('log');
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+    function setStatus(s) {
+      document.getElementById('status').textContent = s;
     }
 
-    document.getElementById("connectBtn").onclick = () => {
-      const token = document.getElementById("token").value.trim();
-      if (!token) {
-        alert("Please enter a JWT token");
-        return;
-      }
+    function connect() {
+      const base = document.getElementById('url').value.trim();
+      const token = document.getElementById('token').value.trim();
+      const typesRaw = document.getElementById('types').value.trim();
 
-      if (es) {
-        es.close();
-      }
+      if (!base) return alert('Enter stream URL');
+      if (!token) return alert('Enter JWT token');
 
-      const url = "http://127.0.0.1:8000/api/v1/external/notify/stream";
-      es = new EventSource(url, { withCredentials: false });
+      if (es) es.close();
 
-      log("Connecting to " + url);
+      // Cache-buster avoids any intermediary caching issues
+      const url = `${base}?token=${encodeURIComponent(token)}&t=${Date.now()}`;
+      es = new EventSource(url);
 
-      es.onopen = () => log("✅ Stream opened");
-      es.onerror = (err) => log("❌ Error: " + JSON.stringify(err, ["message", "arguments", "type", "name"]))
+      log(`Connecting to ${url}`);
+      setStatus('connecting…');
 
-      es.onmessage = (ev) => {
-        log("📨 [default] " + ev.data);
+      es.onopen = () => {
+        log(`✅ onopen (readyState=${es.readyState})`);
+        setStatus('open');
       };
 
-      // Example custom event
-      es.addEventListener("ready", (ev) => {
-        log("🔔 [ready] " + ev.data);
-      });
-    };
+      es.onerror = (e) => {
+        log(`❌ onerror (readyState=${es.readyState})`);
+        // Most browsers auto-reconnect; keep the connection.
+        setStatus('error (auto-retrying if supported)');
+      };
 
-    document.getElementById("disconnectBtn").onclick = () => {
+      // Default messages (no custom "event:" name)
+      es.onmessage = (ev) => {
+        log(`📨 [message] ${ev.data}`);
+      };
+
+      // Built-in "ready" from server (optional)
+      es.addEventListener('ready', (ev) => {
+        log(`🔔 [ready] ${ev.data}`);
+      });
+
+      // Dynamically register custom event listeners
+      if (typesRaw) {
+        typesRaw.split(',').map(s => s.trim()).filter(Boolean).forEach((t) => {
+          es.addEventListener(t, (ev) => {
+            log(`🧷 [${t}] ${ev.data}`);
+          });
+        });
+      }
+    }
+
+    document.getElementById('connectBtn').onclick = connect;
+    document.getElementById('disconnectBtn').onclick = () => {
       if (es) {
         es.close();
-        log("🔒 Stream closed");
+        setStatus('closed');
+        log('🔒 stream closed');
       }
     };
   </script>
